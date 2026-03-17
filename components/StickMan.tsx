@@ -167,11 +167,11 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
     emotion === "overjoyed"
       ? {
           y: [0, -cfg.bounceAmplitude, 0],
-          transition: { duration: cfg.bounceSpeed, repeat: Infinity, ease: "easeInOut" },
+          transition: { duration: cfg.bounceSpeed, repeat: Infinity, ease: "easeInOut" as const },
         }
       : {
           y: [0, -cfg.bounceAmplitude, 0],
-          transition: { duration: cfg.bounceSpeed, repeat: Infinity, ease: "easeInOut" },
+          transition: { duration: cfg.bounceSpeed, repeat: Infinity, ease: "easeInOut" as const },
         };
 
   // Brow base Y positions (in SVG units)
