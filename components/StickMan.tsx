@@ -175,8 +175,8 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
         };
 
   // Brow base Y positions (in SVG units)
-  const leftBrowBaseY = 23;
-  const rightBrowBaseY = 23;
+  const leftBrowBaseY = 15;
+  const rightBrowBaseY = 15;
 
   // Mouth path: always same structure M x Q cx,cy x
   const mouthScale = cfg.mouthWidth;
@@ -322,9 +322,7 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
 
           {/* ── Left Eye ── */}
           <motion.g style={{ originX: "32px", originY: "36px" }}>
-            {/* Eye white (base fill, no stroke here) */}
             <circle cx={32} cy={36} r={9} fill="#fff" />
-            {/* Clipped inner content: pupil + shine + eyelid */}
             <g clipPath="url(#leftEyeClip)">
               {/* Pupil */}
               <motion.circle
@@ -335,6 +333,7 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                 animate={{
                   cx: 32 + cfg.pupilOffset.x,
                   cy: 36 + cfg.pupilOffset.y,
+                  opacity: cfg.xEyes ? 0 : 1,
                 }}
                 transition={SPRING}
               />
@@ -351,7 +350,7 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                 }}
                 transition={SPRING}
               />
-              {/* Eyelid overlay — slides down, clipped to circle */}
+              {/* Eyelid overlay */}
               <motion.rect
                 x={22}
                 y={26}
@@ -361,8 +360,23 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                 animate={{ height: (1 - cfg.leftEyeScaleY) * 16 + 1 }}
                 transition={SPRING}
               />
+              {/* X — fades in inside eye circle */}
+              <AnimatePresence>
+                {cfg.xEyes && (
+                  <motion.g
+                    key="left-x"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.25 }}
+                    style={{ originX: "32px", originY: "36px" }}
+                  >
+                    <line x1="25" y1="29" x2="39" y2="43" stroke="#c44040" strokeWidth={2.8} strokeLinecap="round" />
+                    <line x1="39" y1="29" x2="25" y2="43" stroke="#c44040" strokeWidth={2.8} strokeLinecap="round" />
+                  </motion.g>
+                )}
+              </AnimatePresence>
             </g>
-            {/* Eye border on top for clean containment */}
             <circle cx={32} cy={36} r={9} fill="none" stroke="#2a1a0e" strokeWidth={1.5} />
           </motion.g>
 
@@ -378,6 +392,7 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                 animate={{
                   cx: 68 + cfg.pupilOffset.x,
                   cy: 36 + cfg.pupilOffset.y,
+                  opacity: cfg.xEyes ? 0 : 1,
                 }}
                 transition={SPRING}
               />
@@ -402,30 +417,25 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                 animate={{ height: (1 - cfg.rightEyeScaleY) * 16 + 1 }}
                 transition={SPRING}
               />
+              {/* X — fades in inside eye circle */}
+              <AnimatePresence>
+                {cfg.xEyes && (
+                  <motion.g
+                    key="right-x"
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.25 }}
+                    style={{ originX: "68px", originY: "36px" }}
+                  >
+                    <line x1="61" y1="29" x2="75" y2="43" stroke="#c44040" strokeWidth={2.8} strokeLinecap="round" />
+                    <line x1="75" y1="29" x2="61" y2="43" stroke="#c44040" strokeWidth={2.8} strokeLinecap="round" />
+                  </motion.g>
+                )}
+              </AnimatePresence>
             </g>
             <circle cx={68} cy={36} r={9} fill="none" stroke="#2a1a0e" strokeWidth={1.5} />
           </motion.g>
-
-          {/* ── X Eyes overlay (angry) ── */}
-          <AnimatePresence>
-            {cfg.xEyes && (
-              <motion.g
-                key="x-eyes"
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.5 }}
-                transition={{ duration: 0.25 }}
-                style={{ originX: "50px", originY: "36px" }}
-              >
-                {/* Left X */}
-                <line x1="25" y1="29" x2="39" y2="43" stroke="#c44040" strokeWidth={2.8} strokeLinecap="round" />
-                <line x1="39" y1="29" x2="25" y2="43" stroke="#c44040" strokeWidth={2.8} strokeLinecap="round" />
-                {/* Right X */}
-                <line x1="61" y1="29" x2="75" y2="43" stroke="#c44040" strokeWidth={2.8} strokeLinecap="round" />
-                <line x1="75" y1="29" x2="61" y2="43" stroke="#c44040" strokeWidth={2.8} strokeLinecap="round" />
-              </motion.g>
-            )}
-          </AnimatePresence>
 
           {/* ── Mouth ── */}
           <motion.path
