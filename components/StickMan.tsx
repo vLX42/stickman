@@ -45,8 +45,9 @@ interface EmotionConfig {
 
 const EMOTIONS: Record<Emotion, EmotionConfig> = {
   happy: {
-    leftBrow: { y: -4, rotate: -5, scaleX: 1 },
-    rightBrow: { y: -4, rotate: 5, scaleX: 1 },
+    // outer corners slightly up → left rotate +, right rotate -
+    leftBrow: { y: -4, rotate: 5, scaleX: 1 },
+    rightBrow: { y: -4, rotate: -5, scaleX: 1 },
     leftEyeScaleY: 1,
     rightEyeScaleY: 1,
     pupilOffset: { x: 0, y: 1 },
@@ -64,8 +65,9 @@ const EMOTIONS: Record<Emotion, EmotionConfig> = {
     bounceSpeed: 2.5,
   },
   sad: {
-    leftBrow: { y: 0, rotate: 12, scaleX: 1 },
-    rightBrow: { y: 0, rotate: -12, scaleX: 1 },
+    // inner corners up → left rotate -, right rotate +
+    leftBrow: { y: 0, rotate: -12, scaleX: 1 },
+    rightBrow: { y: 0, rotate: 12, scaleX: 1 },
     leftEyeScaleY: 0.5,
     rightEyeScaleY: 0.5,
     pupilOffset: { x: 0, y: 3 },
@@ -83,8 +85,10 @@ const EMOTIONS: Record<Emotion, EmotionConfig> = {
     bounceSpeed: 3.5,
   },
   confused: {
-    leftBrow: { y: -5, rotate: -14, scaleX: 1.05 },
-    rightBrow: { y: 1, rotate: 9, scaleX: 0.85 },
+    // left: raised arch (outer-up = questioning) → rotate +
+    // right: slight skeptical press (inner-up, outer-down) → rotate -
+    leftBrow: { y: -5, rotate: 14, scaleX: 1.05 },
+    rightBrow: { y: 1, rotate: -8, scaleX: 0.85 },
     leftEyeScaleY: 1,
     rightEyeScaleY: 0.45,
     pupilOffset: { x: -2, y: 0 },
@@ -231,9 +235,12 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
           transition: { duration: cfg.bounceSpeed, repeat: Infinity, ease: "easeInOut" as const },
         };
 
-  // Brow base Y positions (in SVG units)
-  const leftBrowBaseY = 15;
-  const rightBrowBaseY = 15;
+  // Brow positions — base sits well above the eyes (eye top = cy - r = 36 - 9 = 27)
+  // MAX_BROW_Y clamps so brow bottom (Y + 3.5) never overlaps the eye top
+  const BROW_BASE_Y = 13;
+  const MAX_BROW_Y = 22; // brow bottom at 25.5, leaving 1.5 unit gap to eye top (27)
+  const leftBrowBaseY = Math.min(BROW_BASE_Y + cfg.leftBrow.y, MAX_BROW_Y);
+  const rightBrowBaseY = Math.min(BROW_BASE_Y + cfg.rightBrow.y, MAX_BROW_Y);
 
   // Mouth path: always same structure M x Q cx,cy x
   const mouthScale = cfg.mouthWidth;
@@ -510,16 +517,16 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
           />
 
           {/* ── Eyebrows (float above face) ── */}
-          {/* Left brow */}
+          {/* Left brow — y and originY use the pre-computed clamped position */}
           <motion.rect
             x={23}
-            y={leftBrowBaseY}
+            y={BROW_BASE_Y}
             width={14}
             height={3.5}
             rx={2}
             fill="#2a1a0e"
             animate={{
-              y: leftBrowBaseY + cfg.leftBrow.y,
+              y: leftBrowBaseY,
               rotate: cfg.leftBrow.rotate,
               scaleX: cfg.leftBrow.scaleX,
             }}
@@ -529,13 +536,13 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
           {/* Right brow */}
           <motion.rect
             x={63}
-            y={rightBrowBaseY}
+            y={BROW_BASE_Y}
             width={14}
             height={3.5}
             rx={2}
             fill="#2a1a0e"
             animate={{
-              y: rightBrowBaseY + cfg.rightBrow.y,
+              y: rightBrowBaseY,
               rotate: cfg.rightBrow.rotate,
               scaleX: cfg.rightBrow.scaleX,
             }}
