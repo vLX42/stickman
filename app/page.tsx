@@ -35,6 +35,24 @@ const EMOTIONS: { id: Emotion; label: string; emoji: string; description: string
     emoji: "😡",
     description: "X eyes, fierce brows, arms on hips — do not mess with this stick man.",
   },
+  {
+    id: "idea",
+    label: "Idea",
+    emoji: "💡",
+    description: "A lightbulb moment — brows raised, eyes wide, glowing with inspiration.",
+  },
+  {
+    id: "thinking",
+    label: "Thinking",
+    emoji: "🤔",
+    description: "Head tilted, eyes looking up, lost in thought — a cloud of ideas forming.",
+  },
+  {
+    id: "sleeping",
+    label: "Sleeping",
+    emoji: "😴",
+    description: "Eyes shut, head drooped, Zzz floating gently into the air.",
+  },
 ];
 
 export default function Home() {

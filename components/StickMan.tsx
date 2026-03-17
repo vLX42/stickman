@@ -3,7 +3,7 @@
 import { AnimatePresence, motion, useAnimation } from "framer-motion";
 import { useEffect } from "react";
 
-export type Emotion = "happy" | "sad" | "confused" | "overjoyed" | "angry";
+export type Emotion = "happy" | "sad" | "confused" | "overjoyed" | "angry" | "idea" | "thinking" | "sleeping";
 
 interface StickManProps {
   emotion: Emotion;
@@ -45,8 +45,8 @@ interface EmotionConfig {
 
 const EMOTIONS: Record<Emotion, EmotionConfig> = {
   happy: {
-    leftBrow: { y: -2, rotate: -5, scaleX: 1 },
-    rightBrow: { y: -2, rotate: 5, scaleX: 1 },
+    leftBrow: { y: -4, rotate: -5, scaleX: 1 },
+    rightBrow: { y: -4, rotate: 5, scaleX: 1 },
     leftEyeScaleY: 1,
     rightEyeScaleY: 1,
     pupilOffset: { x: 0, y: 1 },
@@ -64,8 +64,8 @@ const EMOTIONS: Record<Emotion, EmotionConfig> = {
     bounceSpeed: 2.5,
   },
   sad: {
-    leftBrow: { y: 2, rotate: 15, scaleX: 1 },
-    rightBrow: { y: 2, rotate: -15, scaleX: 1 },
+    leftBrow: { y: 0, rotate: 12, scaleX: 1 },
+    rightBrow: { y: 0, rotate: -12, scaleX: 1 },
     leftEyeScaleY: 0.5,
     rightEyeScaleY: 0.5,
     pupilOffset: { x: 0, y: 3 },
@@ -83,8 +83,8 @@ const EMOTIONS: Record<Emotion, EmotionConfig> = {
     bounceSpeed: 3.5,
   },
   confused: {
-    leftBrow: { y: -8, rotate: -20, scaleX: 1.1 },
-    rightBrow: { y: 2, rotate: 10, scaleX: 0.8 },
+    leftBrow: { y: -5, rotate: -14, scaleX: 1.05 },
+    rightBrow: { y: 1, rotate: 9, scaleX: 0.85 },
     leftEyeScaleY: 1,
     rightEyeScaleY: 0.45,
     pupilOffset: { x: -2, y: 0 },
@@ -122,8 +122,8 @@ const EMOTIONS: Record<Emotion, EmotionConfig> = {
     bounceSpeed: 0.5,
   },
   angry: {
-    leftBrow: { y: 3, rotate: 28, scaleX: 1.05 },
-    rightBrow: { y: 3, rotate: -28, scaleX: 1.05 },
+    leftBrow: { y: 1, rotate: 22, scaleX: 1.05 },
+    rightBrow: { y: 1, rotate: -22, scaleX: 1.05 },
     leftEyeScaleY: 0.7,
     rightEyeScaleY: 0.7,
     pupilOffset: { x: 0, y: 2 },
@@ -140,6 +140,63 @@ const EMOTIONS: Record<Emotion, EmotionConfig> = {
     bodySway: 0,
     bounceAmplitude: 2,
     bounceSpeed: 0.8,
+  },
+  idea: {
+    leftBrow: { y: -5, rotate: -4, scaleX: 1 },
+    rightBrow: { y: -5, rotate: 4, scaleX: 1 },
+    leftEyeScaleY: 1,
+    rightEyeScaleY: 1,
+    pupilOffset: { x: 0, y: -1 },
+    mouthCtrlY: 68,
+    mouthWidth: 1.05,
+    leftArm: { cx: 36, cy: 102, ex: 20, ey: 118 },
+    rightArm: { cx: 64, cy: 102, ex: 80, ey: 118 },
+    leftLeg: { cx: 46, cy: 145, ex: 35, ey: 175 },
+    rightLeg: { cx: 54, cy: 145, ex: 65, ey: 175 },
+    headRotate: 0,
+    blush: 0.4,
+    xEyes: false,
+    bodySway: 0,
+    bounceAmplitude: 3,
+    bounceSpeed: 2.5,
+  },
+  thinking: {
+    leftBrow: { y: -4, rotate: -8, scaleX: 1 },
+    rightBrow: { y: 1, rotate: 6, scaleX: 0.9 },
+    leftEyeScaleY: 0.85,
+    rightEyeScaleY: 0.6,
+    pupilOffset: { x: 3, y: -1 },
+    mouthCtrlY: 50,
+    mouthWidth: 0.65,
+    leftArm: { cx: 42, cy: 105, ex: 30, ey: 125 },
+    rightArm: { cx: 62, cy: 95, ex: 76, ey: 78 },
+    leftLeg: { cx: 46, cy: 144, ex: 35, ey: 174 },
+    rightLeg: { cx: 54, cy: 144, ex: 65, ey: 174 },
+    headRotate: 6,
+    blush: 0,
+    xEyes: false,
+    bodySway: 1,
+    bounceAmplitude: 1.5,
+    bounceSpeed: 3,
+  },
+  sleeping: {
+    leftBrow: { y: 2, rotate: 5, scaleX: 0.9 },
+    rightBrow: { y: 2, rotate: -5, scaleX: 0.9 },
+    leftEyeScaleY: 0,
+    rightEyeScaleY: 0,
+    pupilOffset: { x: 0, y: 0 },
+    mouthCtrlY: 49,
+    mouthWidth: 0.7,
+    leftArm: { cx: 43, cy: 106, ex: 32, ey: 130 },
+    rightArm: { cx: 57, cy: 106, ex: 68, ey: 130 },
+    leftLeg: { cx: 47, cy: 143, ex: 38, ey: 172 },
+    rightLeg: { cx: 53, cy: 143, ex: 62, ey: 172 },
+    headRotate: -8,
+    blush: 0,
+    xEyes: false,
+    bodySway: 0,
+    bounceAmplitude: 0.5,
+    bounceSpeed: 4,
   },
 };
 
@@ -488,6 +545,94 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
         </motion.g>
 
       </motion.g>
+
+      {/* ── Idea: lightbulb above head ── */}
+      <AnimatePresence>
+        {emotion === "idea" && (
+          <motion.g
+            key="lightbulb"
+            initial={{ opacity: 0, y: 10, scale: 0.6 }}
+            animate={{ opacity: 1, y: [0, -4, 0], scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            transition={{ opacity: { duration: 0.3 }, scale: { duration: 0.3 }, y: { duration: 1.8, repeat: Infinity, ease: "easeInOut" as const } }}
+          >
+            {/* Bulb glow */}
+            <circle cx={50} cy={-22} r={11} fill="#ffe066" opacity={0.25} />
+            {/* Bulb body */}
+            <circle cx={50} cy={-22} r={8} fill="#ffe066" stroke="#c8a800" strokeWidth={1.2} />
+            {/* Filament lines */}
+            <path d="M 46,-26 Q 48,-24 46,-22 Q 48,-20 46,-18" stroke="#c8a800" strokeWidth={1} fill="none" strokeLinecap="round" />
+            <path d="M 54,-26 Q 52,-24 54,-22 Q 52,-20 54,-18" stroke="#c8a800" strokeWidth={1} fill="none" strokeLinecap="round" />
+            {/* Base cap */}
+            <rect x={46} y={-14.5} width={8} height={2.5} rx={1} fill="#c8a800" />
+            <rect x={46.5} y={-12.5} width={7} height={2} rx={1} fill="#c8a800" />
+            {/* Shine */}
+            <circle cx={46} cy={-25} r={1.8} fill="#fff" opacity={0.6} />
+          </motion.g>
+        )}
+      </AnimatePresence>
+
+      {/* ── Thinking: thought bubbles upper-right ── */}
+      <AnimatePresence>
+        {emotion === "thinking" && (
+          <motion.g
+            key="thinking"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            {/* Small dots rising */}
+            <motion.circle cx={72} cy={10} r={2} fill="#aaa" animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.6, repeat: Infinity, delay: 0 }} />
+            <motion.circle cx={79} cy={1} r={3} fill="#aaa" animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.6, repeat: Infinity, delay: 0.2 }} />
+            {/* Main thought cloud */}
+            <motion.g animate={{ opacity: [0.7, 1, 0.7] }} transition={{ duration: 1.6, repeat: Infinity, delay: 0.4 }}>
+              <circle cx={84} cy={-8} r={5.5} fill="#e8e8e8" stroke="#bbb" strokeWidth={0.8} />
+              <circle cx={93} cy={-10} r={4.5} fill="#e8e8e8" stroke="#bbb" strokeWidth={0.8} />
+              <circle cx={89} cy={-16} r={5} fill="#e8e8e8" stroke="#bbb" strokeWidth={0.8} />
+              <circle cx={98} cy={-16} r={4} fill="#e8e8e8" stroke="#bbb" strokeWidth={0.8} />
+              <circle cx={94} cy={-21} r={3.5} fill="#e8e8e8" stroke="#bbb" strokeWidth={0.8} />
+              {/* Dots inside cloud */}
+              <circle cx={88} cy={-12} r={1.2} fill="#999" />
+              <circle cx={93} cy={-13} r={1.2} fill="#999" />
+              <circle cx={90.5} cy={-9} r={1.2} fill="#999" />
+            </motion.g>
+          </motion.g>
+        )}
+      </AnimatePresence>
+
+      {/* ── Sleeping: Zzz ── */}
+      <AnimatePresence>
+        {emotion === "sleeping" && (
+          <motion.g
+            key="sleeping"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.text
+              x={72} y={5}
+              fontSize={7} fontWeight="bold" fill="#7ab" fontFamily="system-ui, sans-serif"
+              animate={{ opacity: [0, 1, 1, 0], y: [8, 5, 5, 2] }}
+              transition={{ duration: 2.4, repeat: Infinity, delay: 0, times: [0, 0.2, 0.8, 1] }}
+            >Z</motion.text>
+            <motion.text
+              x={79} y={-4}
+              fontSize={9} fontWeight="bold" fill="#7ab" fontFamily="system-ui, sans-serif"
+              animate={{ opacity: [0, 1, 1, 0], y: [-1, -4, -4, -7] }}
+              transition={{ duration: 2.4, repeat: Infinity, delay: 0.6, times: [0, 0.2, 0.8, 1] }}
+            >Z</motion.text>
+            <motion.text
+              x={88} y={-14}
+              fontSize={12} fontWeight="bold" fill="#7ab" fontFamily="system-ui, sans-serif"
+              animate={{ opacity: [0, 1, 1, 0], y: [-11, -14, -14, -18] }}
+              transition={{ duration: 2.4, repeat: Infinity, delay: 1.2, times: [0, 0.2, 0.8, 1] }}
+            >Z</motion.text>
+          </motion.g>
+        )}
+      </AnimatePresence>
+
     </motion.svg>
   );
 }
