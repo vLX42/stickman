@@ -198,13 +198,13 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
       style={{ overflow: "visible", display: "block" }}
       animate={bodyFloat}
     >
-      {/* ── Defs: clip paths for eyelids ── */}
+      {/* ── Defs: clip paths for eyes (circle-shaped) ── */}
       <defs>
         <clipPath id="leftEyeClip">
-          <rect x="22" y="26" width="20" height="20" rx="10" />
+          <circle cx="32" cy="36" r="9" />
         </clipPath>
         <clipPath id="rightEyeClip">
-          <rect x="58" y="26" width="20" height="20" rx="10" />
+          <circle cx="68" cy="36" r="9" />
         </clipPath>
       </defs>
 
@@ -250,26 +250,26 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
           transition={SPRING}
         />
 
-        {/* ── Arms ── */}
+        {/* ── Arms (organic: cp1 near shoulder, cp2 near hand) ── */}
         <motion.path
-          d={`M 50,90 C ${cfg.leftArm.cx},${cfg.leftArm.cy} ${cfg.leftArm.cx - 6},${cfg.leftArm.cy + 10} ${cfg.leftArm.ex},${cfg.leftArm.ey}`}
+          d={`M 50,90 C ${cfg.leftArm.cx},${90 + (cfg.leftArm.cy - 90) * 0.4} ${cfg.leftArm.ex + (cfg.leftArm.cx - cfg.leftArm.ex) * 0.3},${cfg.leftArm.ey - 5} ${cfg.leftArm.ex},${cfg.leftArm.ey}`}
           stroke="#2a1a0e"
           strokeWidth={3.2}
           strokeLinecap="round"
           fill="none"
           animate={{
-            d: `M 50,90 C ${cfg.leftArm.cx},${cfg.leftArm.cy} ${cfg.leftArm.cx - 6},${cfg.leftArm.cy + 10} ${cfg.leftArm.ex},${cfg.leftArm.ey}`,
+            d: `M 50,90 C ${cfg.leftArm.cx},${90 + (cfg.leftArm.cy - 90) * 0.4} ${cfg.leftArm.ex + (cfg.leftArm.cx - cfg.leftArm.ex) * 0.3},${cfg.leftArm.ey - 5} ${cfg.leftArm.ex},${cfg.leftArm.ey}`,
           }}
           transition={SPRING}
         />
         <motion.path
-          d={`M 50,90 C ${cfg.rightArm.cx},${cfg.rightArm.cy} ${cfg.rightArm.cx + 6},${cfg.rightArm.cy + 10} ${cfg.rightArm.ex},${cfg.rightArm.ey}`}
+          d={`M 50,90 C ${cfg.rightArm.cx},${90 + (cfg.rightArm.cy - 90) * 0.4} ${cfg.rightArm.ex + (cfg.rightArm.cx - cfg.rightArm.ex) * 0.3},${cfg.rightArm.ey - 5} ${cfg.rightArm.ex},${cfg.rightArm.ey}`}
           stroke="#2a1a0e"
           strokeWidth={3.2}
           strokeLinecap="round"
           fill="none"
           animate={{
-            d: `M 50,90 C ${cfg.rightArm.cx},${cfg.rightArm.cy} ${cfg.rightArm.cx + 6},${cfg.rightArm.cy + 10} ${cfg.rightArm.ex},${cfg.rightArm.ey}`,
+            d: `M 50,90 C ${cfg.rightArm.cx},${90 + (cfg.rightArm.cy - 90) * 0.4} ${cfg.rightArm.ex + (cfg.rightArm.cx - cfg.rightArm.ex) * 0.3},${cfg.rightArm.ey - 5} ${cfg.rightArm.ex},${cfg.rightArm.ey}`,
           }}
           transition={SPRING}
         />
@@ -322,80 +322,88 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
 
           {/* ── Left Eye ── */}
           <motion.g style={{ originX: "32px", originY: "36px" }}>
-            {/* Eye white */}
-            <circle cx={32} cy={36} r={9} fill="#fff" stroke="#2a1a0e" strokeWidth={1.5} />
-            {/* Eyelid overlay (for sad/squint) */}
-            <motion.rect
-              x={22}
-              y={26}
-              width={20}
-              rx={3}
-              fill="#f0d090"
-              animate={{ height: (1 - cfg.leftEyeScaleY) * 16 + 1 }}
-              transition={SPRING}
-            />
-            {/* Pupil */}
-            <motion.circle
-              cx={32}
-              cy={36}
-              r={4}
-              fill="#2a1a0e"
-              animate={{
-                cx: 32 + cfg.pupilOffset.x,
-                cy: 36 + cfg.pupilOffset.y,
-              }}
-              transition={SPRING}
-            />
-            {/* Pupil shine */}
-            <motion.circle
-              cx={34}
-              cy={33}
-              r={1.4}
-              fill="#fff"
-              animate={{
-                cx: 34 + cfg.pupilOffset.x,
-                cy: 33 + cfg.pupilOffset.y,
-                opacity: cfg.xEyes ? 0 : 1,
-              }}
-              transition={SPRING}
-            />
+            {/* Eye white (base fill, no stroke here) */}
+            <circle cx={32} cy={36} r={9} fill="#fff" />
+            {/* Clipped inner content: pupil + shine + eyelid */}
+            <g clipPath="url(#leftEyeClip)">
+              {/* Pupil */}
+              <motion.circle
+                cx={32}
+                cy={36}
+                r={4}
+                fill="#2a1a0e"
+                animate={{
+                  cx: 32 + cfg.pupilOffset.x,
+                  cy: 36 + cfg.pupilOffset.y,
+                }}
+                transition={SPRING}
+              />
+              {/* Pupil shine */}
+              <motion.circle
+                cx={34}
+                cy={33}
+                r={1.4}
+                fill="#fff"
+                animate={{
+                  cx: 34 + cfg.pupilOffset.x,
+                  cy: 33 + cfg.pupilOffset.y,
+                  opacity: cfg.xEyes ? 0 : 1,
+                }}
+                transition={SPRING}
+              />
+              {/* Eyelid overlay — slides down, clipped to circle */}
+              <motion.rect
+                x={22}
+                y={26}
+                width={20}
+                rx={0}
+                fill="#f0d090"
+                animate={{ height: (1 - cfg.leftEyeScaleY) * 16 + 1 }}
+                transition={SPRING}
+              />
+            </g>
+            {/* Eye border on top for clean containment */}
+            <circle cx={32} cy={36} r={9} fill="none" stroke="#2a1a0e" strokeWidth={1.5} />
           </motion.g>
 
           {/* ── Right Eye ── */}
           <motion.g style={{ originX: "68px", originY: "36px" }}>
-            <circle cx={68} cy={36} r={9} fill="#fff" stroke="#2a1a0e" strokeWidth={1.5} />
-            <motion.rect
-              x={58}
-              y={26}
-              width={20}
-              rx={3}
-              fill="#f0d090"
-              animate={{ height: (1 - cfg.rightEyeScaleY) * 16 + 1 }}
-              transition={SPRING}
-            />
-            <motion.circle
-              cx={68}
-              cy={36}
-              r={4}
-              fill="#2a1a0e"
-              animate={{
-                cx: 68 + cfg.pupilOffset.x,
-                cy: 36 + cfg.pupilOffset.y,
-              }}
-              transition={SPRING}
-            />
-            <motion.circle
-              cx={70}
-              cy={33}
-              r={1.4}
-              fill="#fff"
-              animate={{
-                cx: 70 + cfg.pupilOffset.x,
-                cy: 33 + cfg.pupilOffset.y,
-                opacity: cfg.xEyes ? 0 : 1,
-              }}
-              transition={SPRING}
-            />
+            <circle cx={68} cy={36} r={9} fill="#fff" />
+            <g clipPath="url(#rightEyeClip)">
+              <motion.circle
+                cx={68}
+                cy={36}
+                r={4}
+                fill="#2a1a0e"
+                animate={{
+                  cx: 68 + cfg.pupilOffset.x,
+                  cy: 36 + cfg.pupilOffset.y,
+                }}
+                transition={SPRING}
+              />
+              <motion.circle
+                cx={70}
+                cy={33}
+                r={1.4}
+                fill="#fff"
+                animate={{
+                  cx: 70 + cfg.pupilOffset.x,
+                  cy: 33 + cfg.pupilOffset.y,
+                  opacity: cfg.xEyes ? 0 : 1,
+                }}
+                transition={SPRING}
+              />
+              <motion.rect
+                x={58}
+                y={26}
+                width={20}
+                rx={0}
+                fill="#f0d090"
+                animate={{ height: (1 - cfg.rightEyeScaleY) * 16 + 1 }}
+                transition={SPRING}
+              />
+            </g>
+            <circle cx={68} cy={36} r={9} fill="none" stroke="#2a1a0e" strokeWidth={1.5} />
           </motion.g>
 
           {/* ── X Eyes overlay (angry) ── */}

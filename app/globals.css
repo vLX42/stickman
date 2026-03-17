@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0d0508;
-  --bg-raised: #150c10;
-  --bg-card: #1a0f14;
-  --text-primary: #f0e8d8;
-  --text-muted: #9a8a78;
-  --accent-teal: #5b9fa0;
-  --accent-teal-dim: #2d5a5b;
-  --border: rgba(240, 232, 216, 0.08);
+  --bg: #ffffff;
+  --bg-raised: #f4f4f4;
+  --bg-card: #ebebeb;
+  --text-primary: #1a1a1a;
+  --text-muted: #666666;
+  --accent-teal: #3a8a8b;
+  --accent-teal-dim: #cce8e8;
+  --border: rgba(0, 0, 0, 0.12);
 }
 
 * {
@@ -22,6 +22,10 @@ body {
   color: var(--text-primary);
   font-family: system-ui, -apple-system, sans-serif;
   min-height: 100vh;
+}
+
+html {
+  background-color: var(--bg);
 }
 
 .stickman-demo {
