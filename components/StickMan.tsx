@@ -235,12 +235,14 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
           transition: { duration: cfg.bounceSpeed, repeat: Infinity, ease: "easeInOut" as const },
         };
 
-  // Brow positions — base sits well above the eyes (eye top = cy - r = 36 - 9 = 27)
-  // MAX_BROW_Y clamps so brow bottom (Y + 3.5) never overlaps the eye top
-  const BROW_BASE_Y = 13;
-  const MAX_BROW_Y = 22; // brow bottom at 25.5, leaving 1.5 unit gap to eye top (27)
-  const leftBrowBaseY = Math.min(BROW_BASE_Y + cfg.leftBrow.y, MAX_BROW_Y);
-  const rightBrowBaseY = Math.min(BROW_BASE_Y + cfg.rightBrow.y, MAX_BROW_Y);
+  // Brow Y = absolute SVG viewport Y of the brow's top edge.
+  // The rect has SVG y={0}; CSS translateY (via animate.y) IS the visual position.
+  // Eye top = cy(36) - r(9) = 27. Brow height = 3.5. Gap = 2.
+  // Hard rule: browY + 3.5 ≤ 27 - 2  →  browY ≤ 21.5
+  const BROW_BASE_Y = 13; // neutral resting Y
+  const MAX_BROW_Y = 21;  // enforced ceiling: brow bottom at 24.5, 2.5 units above eye top
+  const leftBrowY = Math.min(BROW_BASE_Y + cfg.leftBrow.y, MAX_BROW_Y);
+  const rightBrowY = Math.min(BROW_BASE_Y + cfg.rightBrow.y, MAX_BROW_Y);
 
   // Mouth path: always same structure M x Q cx,cy x
   const mouthScale = cfg.mouthWidth;
@@ -516,37 +518,39 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
             }
           />
 
-          {/* ── Eyebrows (float above face) ── */}
-          {/* Left brow — y and originY use the pre-computed clamped position */}
+          {/* ── Eyebrows ── */}
+          {/* y={0} so CSS translateY (animate.y) is the absolute visual position.
+              originY = visual centre of the brow in SVG viewport coords. */}
           <motion.rect
             x={23}
-            y={BROW_BASE_Y}
+            y={0}
             width={14}
             height={3.5}
             rx={2}
             fill="#2a1a0e"
+            initial={{ y: leftBrowY }}
             animate={{
-              y: leftBrowBaseY,
+              y: leftBrowY,
               rotate: cfg.leftBrow.rotate,
               scaleX: cfg.leftBrow.scaleX,
             }}
-            style={{ originX: "30px", originY: `${leftBrowBaseY + 1.75}px` }}
+            style={{ originX: "30px", originY: `${leftBrowY + 1.75}px` }}
             transition={SPRING}
           />
-          {/* Right brow */}
           <motion.rect
             x={63}
-            y={BROW_BASE_Y}
+            y={0}
             width={14}
             height={3.5}
             rx={2}
             fill="#2a1a0e"
+            initial={{ y: rightBrowY }}
             animate={{
-              y: rightBrowBaseY,
+              y: rightBrowY,
               rotate: cfg.rightBrow.rotate,
               scaleX: cfg.rightBrow.scaleX,
             }}
-            style={{ originX: "70px", originY: `${rightBrowBaseY + 1.75}px` }}
+            style={{ originX: "70px", originY: `${rightBrowY + 1.75}px` }}
             transition={SPRING}
           />
         </motion.g>
