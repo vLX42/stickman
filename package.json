@@ -1,18 +1,57 @@
 {
-  "name": "stickman",
+  "name": "@vlx42/stickman",
   "version": "0.1.0",
-  "private": true,
+  "description": "Animated SVG stick-figure React component with Framer Motion",
+  "keywords": [
+    "react",
+    "stickman",
+    "animation",
+    "framer-motion",
+    "svg",
+    "component"
+  ],
+  "author": "vLX42",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vLX42/stickman.git"
+  },
+  "homepage": "https://github.com/vLX42/stickman#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/StickMan.js",
+  "module": "./dist/StickMan.mjs",
+  "types": "./dist/StickMan.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/StickMan.d.ts",
+      "import": "./dist/StickMan.mjs",
+      "require": "./dist/StickMan.js"
+    }
+  },
+  "peerDependencies": {
+    "framer-motion": ">=10",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:pkg": "tsup && tsc --project tsconfig.build.json",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "framer-motion": "^12.37.0",
+    "framer-motion": ">=10",
     "next": "16.1.7",
-    "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react": ">=18",
+    "react-dom": ">=18"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -22,6 +61,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
     "tailwindcss": "^4",
+    "tsup": "^8.5.1",
     "typescript": "5.9.3"
   }
 }
