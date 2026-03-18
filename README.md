@@ -79,17 +79,18 @@ export function MyClientWidget({ emotion }: { emotion: string }) {
 | `"sad"` | Droopy eyelids, inner brows raised, arms hanging low |
 | `"confused"` | Asymmetric brows, head tilt, right arm raised (scratching head) |
 | `"overjoyed"` | Eyes nearly closed, huge smile, arms raised, fast bouncing |
-| `"angry"` | X eyes, furrowed brows, arms on hips, head shake on enter |
+| `"angry"` | Red pulsating glow eyes, furrowed brows, arms on hips, head shake on enter |
 | `"idea"` | Animated lightbulb above head, wide eyes, brows raised |
 | `"thinking"` | Thought-cloud upper-right, side-glancing pupils, head tilted |
 | `"sleeping"` | Eyes shut, head drooped, staggered Zzz floating upward |
+| `"dead"` | Black X eyes, head slumped sideways, arms limp |
 
 ```tsx
 import StickMan, { type Emotion } from '@vlx42/stickman';
 
 const emotions: Emotion[] = [
   'happy', 'sad', 'confused', 'overjoyed',
-  'angry', 'idea', 'thinking', 'sleeping',
+  'angry', 'idea', 'thinking', 'sleeping', 'dead',
 ];
 ```
 

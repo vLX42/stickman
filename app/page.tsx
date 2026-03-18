@@ -33,7 +33,7 @@ const EMOTIONS: { id: Emotion; label: string; emoji: string; description: string
     id: "angry",
     label: "Angry",
     emoji: "😡",
-    description: "X eyes, fierce brows, arms on hips — do not mess with this stick man.",
+    description: "Red glowing pulsating eyes, fierce brows, arms on hips — do not mess with this stick man.",
   },
   {
     id: "idea",
@@ -52,6 +52,12 @@ const EMOTIONS: { id: Emotion; label: string; emoji: string; description: string
     label: "Sleeping",
     emoji: "😴",
     description: "Eyes shut, head drooped, Zzz floating gently into the air.",
+  },
+  {
+    id: "dead",
+    label: "Dead",
+    emoji: "💀",
+    description: "Head slumped, arms limp, black X eyes — game over.",
   },
 ];
 
