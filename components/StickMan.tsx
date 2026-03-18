@@ -223,6 +223,50 @@ const EMOTIONS: Record<Emotion, EmotionConfig> = {
 // Spring transition used for all body part animations
 const SPRING = { type: "spring", stiffness: 280, damping: 24 } as const;
 
+// ── Eyebrow geometry: mathematical clamping ──────────────────────────────────
+// Head: rect x=14, y=5, w=72, h=62, rx=ry=22.
+// Arc centers (top-left and top-right) are at (36, 27) and (64, 27).
+// Eye top = cy(36) - r(9) = 27 — same Y as the arc centers.
+const BROW_W = 14;
+const BROW_H = 3.5;
+const EYE_TOP = 27;       // top edge of eye circles
+const BROW_GAP = 2;       // minimum clearance between brow and eye top
+const HEAD_RX = 22;
+const HEAD_ARC_INSET = 2; // visual padding inside the rounded corner
+const ARC_MIN_X = 36;     // HEAD_X1(14) + HEAD_RX(22)
+const ARC_MAX_X = 64;     // HEAD_X2(86) - HEAD_RX(22)
+const ARC_CY = 27;        // arc top-centre Y = EYE_TOP
+const R_EFF = HEAD_RX - HEAD_ARC_INSET; // = 20
+
+/**
+ * Returns browY clamped so every corner of the rotated brow rect
+ * (a) stays above the eye, and (b) stays inside the head's rounded rect.
+ * originX is the SVG-unit x of the rotation pivot (30 for left, 70 for right).
+ */
+function clampBrowY(desiredY: number, angleDeg: number, originX: number, scaleX = 1): number {
+  const θ = (angleDeg * Math.PI) / 180;
+  const cosθ = Math.cos(θ);
+  const sinθ = Math.sin(θ);
+  const halfW = (BROW_W / 2) * scaleX;
+  const halfH = BROW_H / 2;
+  let minY = -Infinity;
+  let maxY = Infinity;
+  for (const [dx, dy] of [
+    [-halfW, -halfH], [halfW, -halfH],
+    [-halfW,  halfH], [halfW,  halfH],
+  ] as [number, number][]) {
+    const vx = originX + dx * cosθ - dy * sinθ;
+    const yOff = halfH + dx * sinθ + dy * cosθ;
+    // Eye constraint: brow bottom must not reach the eye top
+    maxY = Math.min(maxY, EYE_TOP - BROW_GAP - yOff);
+    // Head boundary: corner must stay inside the rounded rect
+    const cx = Math.max(ARC_MIN_X, Math.min(ARC_MAX_X, vx));
+    const disc = R_EFF * R_EFF - (vx - cx) ** 2;
+    if (disc >= 0) minY = Math.max(minY, ARC_CY - yOff - Math.sqrt(disc));
+  }
+  return Math.max(minY, Math.min(desiredY, maxY));
+}
+
 export default function StickMan({ emotion, size = 200, speaking = false }: StickManProps) {
   const cfg = EMOTIONS[emotion];
   const headShake = useAnimation();
@@ -251,14 +295,13 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
           transition: { duration: cfg.bounceSpeed, repeat: Infinity, ease: "easeInOut" as const },
         };
 
-  // Brow Y = absolute SVG viewport Y of the brow's top edge (= CSS translateY since SVG y={0}).
-  // Head rounded corners (rx=22) mean brows must be ≥ y=11 to stay inside the face at x=23/77.
-  // Eye top = cy(36) - r(9) = 27. Hard rule: browY + 3.5 ≤ 25 (2.5 unit gap to eye top).
+  const isDead = cfg.eyeStyle === "dead";
+
+  // Brow Y = CSS translateY (SVG y attr is 0, so translateY is the sole position).
+  // clampBrowY checks all 4 rotated corners against eye-top and head-boundary constraints.
   const BROW_BASE_Y = 13;
-  const MIN_BROW_Y = 11; // keeps brow inside head rounded corners at x=23/77
-  const MAX_BROW_Y = 21; // brow bottom at 24.5, 2.5 units above eye top (27)
-  const leftBrowY = Math.max(MIN_BROW_Y, Math.min(BROW_BASE_Y + cfg.leftBrow.y, MAX_BROW_Y));
-  const rightBrowY = Math.max(MIN_BROW_Y, Math.min(BROW_BASE_Y + cfg.rightBrow.y, MAX_BROW_Y));
+  const leftBrowY  = clampBrowY(BROW_BASE_Y + cfg.leftBrow.y,  cfg.leftBrow.rotate,  30, cfg.leftBrow.scaleX);
+  const rightBrowY = clampBrowY(BROW_BASE_Y + cfg.rightBrow.y, cfg.rightBrow.rotate, 70, cfg.rightBrow.scaleX);
 
   // Mouth path: always same structure M x Q cx,cy x
   const mouthScale = cfg.mouthWidth;
@@ -377,7 +420,7 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
             height={62}
             rx={22}
             ry={22}
-            fill="#f0d090"
+            fill={isDead ? "#c8c4b0" : "#f0d090"}
             stroke="#2a1a0e"
             strokeWidth={2.8}
           />
@@ -418,7 +461,7 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                 />
               )}
             </AnimatePresence>
-            <circle cx={32} cy={36} r={9} fill="#fff" />
+            {!isDead && <circle cx={32} cy={36} r={9} fill="#fff" />}
             <g clipPath="url(#leftEyeClip)">
               {/* Normal pupils */}
               {cfg.eyeStyle === "normal" && (
@@ -433,44 +476,50 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                   />
                 </>
               )}
-              {/* Angry: red pulsating fill */}
-              {cfg.eyeStyle === "angry" && (
-                <>
-                  <motion.circle cx={32} cy={36} r={8}
-                    fill="#bb1100"
-                    animate={{ r: [7.5, 9, 7.5], opacity: [1, 0.75, 1] }}
-                    transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                  <motion.circle cx={32} cy={37} r={4}
-                    fill="#ff3300"
-                    animate={{ r: [3.5, 5, 3.5] }}
-                    transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                  <circle cx={34} cy={33} r={1.5} fill="#ff8866" opacity={0.9} />
-                </>
-              )}
-              {/* Eyelid overlay */}
-              <motion.rect
-                x={22} y={26} width={20} rx={0}
-                fill="#f0d090"
-                animate={{ height: (1 - cfg.leftEyeScaleY) * 16 + 1 }}
-                transition={SPRING}
-              />
-              {/* Dead: black X */}
+              {/* Angry: red pulsating fill — wrapped in AnimatePresence so it properly
+                  exits and remounts (fresh animation) every time angry is entered */}
               <AnimatePresence>
-                {cfg.eyeStyle === "dead" && (
-                  <motion.g key="left-dead-x"
-                    initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.25 }}
-                    style={{ originX: "32px", originY: "36px" }}
+                {cfg.eyeStyle === "angry" && (
+                  <motion.g key={`angry-l-${emotion}`}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                   >
-                    <line x1="25" y1="29" x2="39" y2="43" stroke="#111" strokeWidth={3} strokeLinecap="round" />
-                    <line x1="39" y1="29" x2="25" y2="43" stroke="#111" strokeWidth={3} strokeLinecap="round" />
+                    <motion.circle cx={32} cy={36} r={8}
+                      fill="#bb1100"
+                      animate={{ r: [7.5, 9, 7.5], opacity: [1, 0.75, 1] }}
+                      transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    <motion.circle cx={32} cy={37} r={4}
+                      fill="#ff3300"
+                      animate={{ r: [3.5, 5, 3.5] }}
+                      transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    <circle cx={34} cy={33} r={1.5} fill="#ff8866" opacity={0.9} />
                   </motion.g>
                 )}
               </AnimatePresence>
+              {/* Eyelid overlay */}
+              <motion.rect
+                x={22} y={26} width={20} rx={0}
+                fill={isDead ? "#c8c4b0" : "#f0d090"}
+                animate={{ height: (1 - cfg.leftEyeScaleY) * 16 + 1 }}
+                transition={SPRING}
+              />
             </g>
-            <circle cx={32} cy={36} r={9} fill="none" stroke="#2a1a0e" strokeWidth={1.5} />
+            {/* Dead: X drawn outside clip so diagonal corners aren't truncated */}
+            <AnimatePresence>
+              {cfg.eyeStyle === "dead" && (
+                <motion.g key="left-dead-x"
+                  initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.25 }}
+                  style={{ originX: "32px", originY: "36px" }}
+                >
+                  <line x1="25" y1="29" x2="39" y2="43" stroke="#333" strokeWidth={2.5} strokeLinecap="round" />
+                  <line x1="39" y1="29" x2="25" y2="43" stroke="#333" strokeWidth={2.5} strokeLinecap="round" />
+                </motion.g>
+              )}
+            </AnimatePresence>
+            {!isDead && <circle cx={32} cy={36} r={9} fill="none" stroke="#2a1a0e" strokeWidth={1.5} />}
           </motion.g>
 
           {/* ── Right Eye ── */}
@@ -488,7 +537,7 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                 />
               )}
             </AnimatePresence>
-            <circle cx={68} cy={36} r={9} fill="#fff" />
+            {!isDead && <circle cx={68} cy={36} r={9} fill="#fff" />}
             <g clipPath="url(#rightEyeClip)">
               {cfg.eyeStyle === "normal" && (
                 <>
@@ -502,41 +551,47 @@ export default function StickMan({ emotion, size = 200, speaking = false }: Stic
                   />
                 </>
               )}
-              {cfg.eyeStyle === "angry" && (
-                <>
-                  <motion.circle cx={68} cy={36} r={8}
-                    fill="#bb1100"
-                    animate={{ r: [7.5, 9, 7.5], opacity: [1, 0.75, 1] }}
-                    transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                  <motion.circle cx={68} cy={37} r={4}
-                    fill="#ff3300"
-                    animate={{ r: [3.5, 5, 3.5] }}
-                    transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                  <circle cx={70} cy={33} r={1.5} fill="#ff8866" opacity={0.9} />
-                </>
-              )}
-              <motion.rect
-                x={58} y={26} width={20} rx={0}
-                fill="#f0d090"
-                animate={{ height: (1 - cfg.rightEyeScaleY) * 16 + 1 }}
-                transition={SPRING}
-              />
               <AnimatePresence>
-                {cfg.eyeStyle === "dead" && (
-                  <motion.g key="right-dead-x"
-                    initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.25 }}
-                    style={{ originX: "68px", originY: "36px" }}
+                {cfg.eyeStyle === "angry" && (
+                  <motion.g key={`angry-r-${emotion}`}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
                   >
-                    <line x1="61" y1="29" x2="75" y2="43" stroke="#111" strokeWidth={3} strokeLinecap="round" />
-                    <line x1="75" y1="29" x2="61" y2="43" stroke="#111" strokeWidth={3} strokeLinecap="round" />
+                    <motion.circle cx={68} cy={36} r={8}
+                      fill="#bb1100"
+                      animate={{ r: [7.5, 9, 7.5], opacity: [1, 0.75, 1] }}
+                      transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    <motion.circle cx={68} cy={37} r={4}
+                      fill="#ff3300"
+                      animate={{ r: [3.5, 5, 3.5] }}
+                      transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    <circle cx={70} cy={33} r={1.5} fill="#ff8866" opacity={0.9} />
                   </motion.g>
                 )}
               </AnimatePresence>
+              <motion.rect
+                x={58} y={26} width={20} rx={0}
+                fill={isDead ? "#c8c4b0" : "#f0d090"}
+                animate={{ height: (1 - cfg.rightEyeScaleY) * 16 + 1 }}
+                transition={SPRING}
+              />
             </g>
-            <circle cx={68} cy={36} r={9} fill="none" stroke="#2a1a0e" strokeWidth={1.5} />
+            {/* Dead: X drawn outside clip so diagonal corners aren't truncated */}
+            <AnimatePresence>
+              {cfg.eyeStyle === "dead" && (
+                <motion.g key="right-dead-x"
+                  initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.5 }} transition={{ duration: 0.25 }}
+                  style={{ originX: "68px", originY: "36px" }}
+                >
+                  <line x1="61" y1="29" x2="75" y2="43" stroke="#333" strokeWidth={2.5} strokeLinecap="round" />
+                  <line x1="75" y1="29" x2="61" y2="43" stroke="#333" strokeWidth={2.5} strokeLinecap="round" />
+                </motion.g>
+              )}
+            </AnimatePresence>
+            {!isDead && <circle cx={68} cy={36} r={9} fill="none" stroke="#2a1a0e" strokeWidth={1.5} />}
           </motion.g>
 
           {/* ── Mouth ── */}
