@@ -11,9 +11,8 @@ const GRAVITY = -3.0;
 const TORN_GRAVITY_MULT = 2.4;
 const DAMPING = 0.992;
 const PIN_EVERY = 8; // pin top row every Nth vertex
-const TEAR_RADIUS_INIT = 0.08; // small — let the rip propagate organically
-const TEAR_PUNCH = 0.045; // outward impulse magnitude (in position units)
-const EDGE_WIDEN = 0.0035; // impulse applied when a constraint breaks
+const CUT_RADIUS = 0.05; // world-space radius of the "scissors"
+const EDGE_WIDEN = 0.0035; // outward kick when a constraint snaps
 const MAX_EMBERS = 1400;
 
 interface SceneState {
@@ -166,15 +165,15 @@ function buildScene(
     for (let i = 0; i <= ROWS; i++) {
       for (let j = 0; j <= COLS; j++) {
         const idx = i * (COLS + 1) + j;
-        // Structural — strong, breakable
-        if (j < COLS) add(idx, idx + 1, 1.0, 1.55);
-        if (i < ROWS) add(idx, idx + (COLS + 1), 1.0, 1.55);
+        // Structural — strong, stretches visibly before snapping
+        if (j < COLS) add(idx, idx + 1, 1.0, 1.95);
+        if (i < ROWS) add(idx, idx + (COLS + 1), 1.0, 1.95);
         // Shear — slightly weaker
-        if (i < ROWS && j < COLS) add(idx, idx + (COLS + 1) + 1, 0.7, 1.7);
-        if (i < ROWS && j > 0) add(idx, idx + (COLS + 1) - 1, 0.7, 1.7);
+        if (i < ROWS && j < COLS) add(idx, idx + (COLS + 1) + 1, 0.7, 2.1);
+        if (i < ROWS && j > 0) add(idx, idx + (COLS + 1) - 1, 0.7, 2.1);
         // Bend — soft, prevents extreme folding, doesn't break visibly
-        if (j < COLS - 1) add(idx, idx + 2, 0.18, 5.0);
-        if (i < ROWS - 1) add(idx, idx + 2 * (COLS + 1), 0.18, 5.0);
+        if (j < COLS - 1) add(idx, idx + 2, 0.18, 6.0);
+        if (i < ROWS - 1) add(idx, idx + 2 * (COLS + 1), 0.18, 6.0);
       }
     }
   };
@@ -219,7 +218,7 @@ function buildScene(
     uniforms: {
       uMap: { value: texture },
       uTime: { value: 0 },
-      uDissolveSpeed: { value: 0.9 },
+      uDissolveSpeed: { value: 0.35 },
       uEmber: { value: new THREE.Color(0xff7a1f) },
       uChar: { value: new THREE.Color(0x0b0604) },
     },
@@ -434,45 +433,40 @@ function buildScene(
   const WAVE_SPEED = 1.4;
   const GUST_LIFE = 3.5;
 
-  // ---- Click → tear -------------------------------------------------------
+  // ---- Drag-to-cut (tearable.js style) ------------------------------------
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   let dissolveTriggered = false;
 
   const clock = { elapsed: 0 };
 
-  const tearAt = (worldPoint: THREE.Vector3) => {
+  // Snip every constraint whose midpoint lies near the segment a→b
+  const sliceSegment = (
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+  ) => {
     dissolveTriggered = true;
-    const r2 = TEAR_RADIUS_INIT * TEAR_RADIUS_INIT;
-    const cx = worldPoint.x;
-    const cy = worldPoint.y;
-
-    // Punch — strong outward impulse to particles in a small radius
-    for (let v = 0; v < nVerts; v++) {
-      const dx = pos[v * 3] - cx;
-      const dy = pos[v * 3 + 1] - cy;
-      const d2 = dx * dx + dy * dy;
-      if (d2 < r2) {
-        const d = Math.sqrt(d2) + 1e-5;
-        const fall = 1 - d / TEAR_RADIUS_INIT;
-        const k = TEAR_PUNCH * fall;
-        prev[v * 3] -= (dx / d) * k;
-        prev[v * 3 + 1] -= (dy / d) * k;
-        prev[v * 3 + 2] -= (Math.random() - 0.5) * k * 1.2;
-        pinned[v] = 0;
-      }
-    }
-
-    // Break a small kernel of constraints to start the rip
+    const r2 = CUT_RADIUS * CUT_RADIUS;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy + 1e-9;
     for (let k = 0; k < constraints.length; k++) {
       const c = constraints[k];
       if (c.broken) continue;
-      const mx = (pos[c.a * 3] + pos[c.b * 3]) * 0.5 - cx;
-      const my = (pos[c.a * 3 + 1] + pos[c.b * 3 + 1]) * 0.5 - cy;
-      if (mx * mx + my * my < r2 * 0.6) breakConstraint(c);
+      const mx = (pos[c.a * 3] + pos[c.b * 3]) * 0.5;
+      const my = (pos[c.a * 3 + 1] + pos[c.b * 3 + 1]) * 0.5;
+      // closest point on segment a→b to (mx,my)
+      let t = ((mx - ax) * dx + (my - ay) * dy) / len2;
+      if (t < 0) t = 0;
+      else if (t > 1) t = 1;
+      const px = ax + t * dx;
+      const py = ay + t * dy;
+      const ex = mx - px;
+      const ey = my - py;
+      if (ex * ex + ey * ey < r2) breakConstraint(c);
     }
-
-    gusts.push({ x: cx, y: cy, t0: clock.elapsed });
   };
 
   const breakConstraint = (c: Constraint) => {
@@ -534,15 +528,65 @@ function buildScene(
     }
   };
 
-  const onPointer = (e: PointerEvent) => {
+  const tmpHit = new THREE.Vector3();
+  let lastX = 0;
+  let lastY = 0;
+  let hasLast = false;
+  let dragging = false;
+
+  const getHit = (e: PointerEvent): boolean => {
     const rect = renderer.domElement.getBoundingClientRect();
     ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(ndc, camera);
     const hits = raycaster.intersectObject(mesh, false);
-    if (hits.length) tearAt(hits[0].point);
+    if (hits.length) {
+      tmpHit.copy(hits[0].point);
+      return true;
+    }
+    // Fallback: project onto z=0 plane so cutting still works once cloth
+    // has torn away from where the mouse is.
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+    const out = new THREE.Vector3();
+    if (raycaster.ray.intersectPlane(plane, out)) {
+      tmpHit.copy(out);
+      return true;
+    }
+    return false;
   };
-  renderer.domElement.addEventListener("pointerdown", onPointer);
+
+  const onPointerDown = (e: PointerEvent) => {
+    dragging = true;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    if (getHit(e)) {
+      sliceSegment(tmpHit.x, tmpHit.y, tmpHit.x, tmpHit.y);
+      gusts.push({ x: tmpHit.x, y: tmpHit.y, t0: clock.elapsed });
+      lastX = tmpHit.x;
+      lastY = tmpHit.y;
+      hasLast = true;
+    }
+  };
+  const onPointerMove = (e: PointerEvent) => {
+    if (!dragging) return;
+    if (!getHit(e)) return;
+    if (hasLast) {
+      sliceSegment(lastX, lastY, tmpHit.x, tmpHit.y);
+    } else {
+      sliceSegment(tmpHit.x, tmpHit.y, tmpHit.x, tmpHit.y);
+    }
+    lastX = tmpHit.x;
+    lastY = tmpHit.y;
+    hasLast = true;
+  };
+  const onPointerUp = () => {
+    dragging = false;
+    hasLast = false;
+  };
+  renderer.domElement.addEventListener("pointerdown", onPointerDown);
+  renderer.domElement.addEventListener("pointermove", onPointerMove);
+  renderer.domElement.addEventListener("pointerup", onPointerUp);
+  renderer.domElement.addEventListener("pointercancel", onPointerUp);
+  renderer.domElement.addEventListener("pointerleave", onPointerUp);
 
   // ---- Simulation step ----------------------------------------------------
   const threeClock = new THREE.Clock();
@@ -646,20 +690,17 @@ function buildScene(
   };
 
   // ---- Dissolve propagation (creeps inward from torn edges) ---------------
-  const propagateDissolve = (dt: number) => {
+  const propagateDissolve = () => {
     const now = clock.elapsed;
-    // For each particle whose dissolve has begun, seed neighbors with a
-    // small delayed dissolve so the burn slowly eats into intact cloth.
-    const targetDelay = 0.4 / Math.max(dt, 0.001); // controls inward speed
+    // For each particle whose dissolve has begun, slowly seed neighbors
+    // so the burn creeps inward from torn edges (and only torn edges).
     for (let i = 0; i <= ROWS; i++) {
       for (let j = 0; j <= COLS; j++) {
         const idx = i * (COLS + 1) + j;
-        if (aDissolveStart[idx] > now - 0.05) continue;
-        const cap = now + 0.35 + Math.random() * 0.6;
+        if (aDissolveStart[idx] > now - 0.3) continue;
+        const cap = now + 1.2 + Math.random() * 1.0;
         const tryProp = (n: number) => {
-          if (aDissolveStart[n] > cap) {
-            aDissolveStart[n] = cap;
-          }
+          if (aDissolveStart[n] > cap) aDissolveStart[n] = cap;
         };
         if (j > 0) tryProp(idx - 1);
         if (j < COLS) tryProp(idx + 1);
@@ -668,7 +709,6 @@ function buildScene(
       }
     }
     dsAttr.needsUpdate = true;
-    void targetDelay;
   };
 
   // ---- Embers update ------------------------------------------------------
@@ -692,7 +732,6 @@ function buildScene(
 
   // ---- Main loop ----------------------------------------------------------
   let rafId = 0;
-  let globalBurnStart = -1;
 
   const tick = () => {
     rafId = requestAnimationFrame(tick);
@@ -705,26 +744,7 @@ function buildScene(
     }
 
     if (dissolveTriggered) {
-      // After a beat, also start eating the cloth from the outer edges so
-      // even untouched regions eventually disintegrate.
-      if (globalBurnStart < 0) globalBurnStart = clock.elapsed + 1.6;
-      if (clock.elapsed > globalBurnStart) {
-        const seed = clock.elapsed + (clock.elapsed - globalBurnStart) * 0.4;
-        for (let s = 0; s < 4; s++) {
-          const onTop = Math.random() < 0.5;
-          const i = onTop ? 0 : ROWS;
-          const j = Math.floor(Math.random() * (COLS + 1));
-          const idx = i * (COLS + 1) + j;
-          if (aDissolveStart[idx] > seed) aDissolveStart[idx] = seed;
-        }
-        for (let s = 0; s < 2; s++) {
-          const j = Math.random() < 0.5 ? 0 : COLS;
-          const i = Math.floor(Math.random() * (ROWS + 1));
-          const idx = i * (COLS + 1) + j;
-          if (aDissolveStart[idx] > seed) aDissolveStart[idx] = seed;
-        }
-      }
-      propagateDissolve(dt);
+      propagateDissolve();
     }
 
     stepEmbers(dt);
@@ -766,14 +786,17 @@ function buildScene(
     embPosAttr.needsUpdate = true;
     embAgeAttr.needsUpdate = true;
     dissolveTriggered = false;
-    globalBurnStart = -1;
   };
 
   return {
     dispose: () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("resize", onResize);
-      renderer.domElement.removeEventListener("pointerdown", onPointer);
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("pointercancel", onPointerUp);
+      renderer.domElement.removeEventListener("pointerleave", onPointerUp);
       renderer.dispose();
       geometry.dispose();
       material.dispose();
@@ -891,8 +914,8 @@ export default function TearPage() {
               maxWidth: 380,
             }}
           >
-            Click the fabric — a jagged tear rips outward, embers fly, and
-            the rest slowly burns away.
+            Click and drag through the fabric to cut threads. Torn edges
+            slowly smoulder and dissolve away.
           </p>
         </div>
 
@@ -947,7 +970,7 @@ export default function TearPage() {
             fontFamily: "system-ui, -apple-system, sans-serif",
           }}
         >
-          ⟶ click the cloth
+          ⟶ click & drag to cut
         </div>
       )}
     </div>
