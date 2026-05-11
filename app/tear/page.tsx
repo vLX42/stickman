@@ -6,7 +6,8 @@ import * as THREE from "three";
 const COLS = 90;
 const ROWS = 90;
 const ITER = 4;
-const GRAVITY = -2.8;
+const GRAVITY = -3.2;
+const TORN_GRAVITY_MULT = 2.6;
 const DAMPING = 0.985;
 const TEAR_RADIUS = 0.18;
 const IMPULSE = 1.2;
@@ -95,6 +96,7 @@ function buildScene(
   const pos = new Float32Array(nVerts * 3);
   const prev = new Float32Array(nVerts * 3);
   const pinned = new Uint8Array(nVerts);
+  const torn = new Uint8Array(nVerts);
   const dissolveStart = new Float32Array(nVerts);
 
   const initParticles = () => {
@@ -110,7 +112,13 @@ function buildScene(
         prev[idx * 3] = x;
         prev[idx * 3 + 1] = y;
         prev[idx * 3 + 2] = z;
-        pinned[idx] = i === 0 ? 1 : 0;
+        // Pin top row at discrete points (like thumbtacks) so the cloth
+        // sags naturally between them instead of forming a perfectly
+        // straight edge.
+        const isPin =
+          i === 0 && (j % 10 === 0 || j === COLS);
+        pinned[idx] = isPin ? 1 : 0;
+        torn[idx] = 0;
         dissolveStart[idx] = 1e9;
       }
     }
@@ -274,6 +282,17 @@ function buildScene(
   const ndc = new THREE.Vector2();
   let dissolveTriggered = false;
 
+  // Wind gusts triggered by impacts (traveling ripple + lingering flutter)
+  interface Gust {
+    x: number;
+    y: number;
+    t0: number;
+    strength: number;
+  }
+  const gusts: Gust[] = [];
+  const WAVE_SPEED = 1.6;
+  const GUST_LIFE = 3.0;
+
   const tearAt = (worldPoint: THREE.Vector3) => {
     dissolveTriggered = true;
     const r2 = TEAR_RADIUS * TEAR_RADIUS;
@@ -294,6 +313,7 @@ function buildScene(
         prev[v * 3 + 1] = pos[v * 3 + 1] - ny * IMPULSE * fall * 0.02;
         prev[v * 3 + 2] = pos[v * 3 + 2] - (Math.random() - 0.5) * 0.04;
         pinned[v] = 0;
+        torn[v] = 1;
         if (aDissolveStart[v] > clock.elapsed) {
           aDissolveStart[v] = clock.elapsed + 0.1 * (1 - fall);
         }
@@ -305,9 +325,20 @@ function buildScene(
       if (c.broken) continue;
       const mx = (pos[c.a * 3] + pos[c.b * 3]) * 0.5 - cx;
       const my = (pos[c.a * 3 + 1] + pos[c.b * 3 + 1]) * 0.5 - cy;
-      if (mx * mx + my * my < r2 * 1.1) c.broken = true;
+      if (mx * mx + my * my < r2 * 1.1) {
+        c.broken = true;
+        torn[c.a] = 1;
+        torn[c.b] = 1;
+      }
     }
     dsAttr.needsUpdate = true;
+
+    gusts.push({
+      x: cx,
+      y: cy,
+      t0: clock.elapsed,
+      strength: 1.0,
+    });
   };
 
   const onPointer = (e: PointerEvent) => {
@@ -329,7 +360,19 @@ function buildScene(
   let acc = 0;
 
   const step = (dt: number) => {
-    // Verlet
+    const now = clock.elapsed;
+
+    // Cull expired gusts
+    for (let g = gusts.length - 1; g >= 0; g--) {
+      if (now - gusts[g].t0 > GUST_LIFE) gusts.splice(g, 1);
+    }
+
+    // Ambient breeze
+    const ambient =
+      Math.sin(now * 1.3) * 0.05 + Math.sin(now * 0.7 + 1.2) * 0.04;
+
+    // Verlet integration with wind & gust shockwave
+    const dt2 = dt * dt;
     for (let v = 0; v < nVerts; v++) {
       if (pinned[v]) continue;
       const ix = v * 3;
@@ -338,12 +381,39 @@ function buildScene(
       const vx = (pos[ix] - prev[ix]) * DAMPING;
       const vy = (pos[iy] - prev[iy]) * DAMPING;
       const vz = (pos[iz] - prev[iz]) * DAMPING;
+
+      // Wind accumulators (in acceleration units)
+      let ax = 0;
+      let az = ambient;
+
+      for (let gi = 0; gi < gusts.length; gi++) {
+        const g = gusts[gi];
+        const age = now - g.t0;
+        const fade = Math.exp(-age * 1.0);
+        const dx = pos[ix] - g.x;
+        const dy = pos[iy] - g.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        // Traveling shockwave: gaussian pulse around wavefront
+        const front = d - age * WAVE_SPEED;
+        const pulse =
+          Math.exp(-(front * front) * 35) * Math.cos(front * 18);
+        // Push primarily out of plane (Z) so cloth visibly waves
+        az += g.strength * fade * pulse * 18;
+        // Lingering flutter — gentle sustained breeze that decays
+        const flutter =
+          Math.sin(now * 6.0 + d * 9) * Math.exp(-age * 0.7) * 0.25;
+        az += g.strength * flutter;
+        ax += g.strength * flutter * 0.4;
+      }
+
+      const gMult = torn[v] ? TORN_GRAVITY_MULT : 1.0;
+
       prev[ix] = pos[ix];
       prev[iy] = pos[iy];
       prev[iz] = pos[iz];
-      pos[ix] += vx;
-      pos[iy] += vy + GRAVITY * dt * dt;
-      pos[iz] += vz;
+      pos[ix] += vx + ax * dt2;
+      pos[iy] += vy + GRAVITY * gMult * dt2;
+      pos[iz] += vz + az * dt2;
     }
 
     // Constraint relaxation
@@ -360,6 +430,8 @@ function buildScene(
         // Break if overstretched
         if (d > c.rest * 2.2) {
           c.broken = true;
+          torn[c.a] = 1;
+          torn[c.b] = 1;
           continue;
         }
         const diff = (d - c.rest) / d;
@@ -460,7 +532,11 @@ function buildScene(
   const reset = () => {
     initParticles();
     buildConstraints();
-    for (let v = 0; v < nVerts; v++) aDissolveStart[v] = 1e9;
+    for (let v = 0; v < nVerts; v++) {
+      aDissolveStart[v] = 1e9;
+      torn[v] = 0;
+    }
+    gusts.length = 0;
     positions.set(pos);
     posAttr.needsUpdate = true;
     dsAttr.needsUpdate = true;
